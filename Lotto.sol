@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@klaytn/contracts/access/Ownable.sol";
+import "@klaytn/contracts/contracts/access/Ownable.sol";
+import "@klaytn/contracts/contracts/KIP/token/KIP7/IKIP7.sol";
 
-contract Lottery is Ownable{
+contract Lottery is Ownable {
+
+  IKIP7 public token;
 
   struct Round {
     uint256 startTime;  // 시작시간
@@ -26,6 +29,7 @@ contract Lottery is Ownable{
 
 
   uint256 public TICKET_PRICE;
+  uint256 public TICKET_TOKEN_PRICE;
   uint256 constant public MIN_NUMBER = 1;
   uint256 constant public MAX_NUMBER = 45;
   Round[] public rounds;
@@ -35,9 +39,11 @@ contract Lottery is Ownable{
 
   uint256 public currentBlock;
 
-  constructor(uint256 _round_interval, uint256 _TICKET_PRICE) {
+  constructor(address _token, uint256 _round_interval, uint256 _ticket_price, uint256 _ticket_token_price) {
+    token = IKIP7(_token);
     round_interval = _round_interval;
-    TICKET_PRICE = _TICKET_PRICE;
+    TICKET_PRICE = _ticket_price;
+    TICKET_TOKEN_PRICE = _ticket_token_price;
     createRound();
   }
 
@@ -65,6 +71,41 @@ contract Lottery is Ownable{
     rounds.push(round);
   }
 
+  // 토큰으로 구매
+  function tokenBuy(uint256[6] memory numbers) public {
+    require(rounds[rounds.length - 1].endTime >= block.timestamp, "Round End");
+    require(rounds[rounds.length - 1].status != RoundStatus.End, "Round End");
+    require(token.balanceOf(msg.sender) >= TICKET_TOKEN_PRICE, "Not valid value");
+
+    
+
+    // 숫자 중복 검사
+    for(uint256 i = 0; i < numbers.length - 1; i++) {
+      for(uint256 j = i+1; j < numbers.length; j++) {
+        require(numbers[i] != numbers[j]);
+      }
+    }
+    
+
+    // 0~45 검사
+    for(uint256 i = 0; i < numbers.length; i++) {
+      require(numbers[i] >= MIN_NUMBER && numbers[i] <= MAX_NUMBER, "Only numbers 0 ~ 45 can be entered");
+    }
+
+    // token.approve(address(this), TICKET_TOKEN_PRICE);
+
+    token.transferFrom(msg.sender, address(this), TICKET_TOKEN_PRICE);
+
+    Ticket memory ticket = Ticket(
+      msg.sender,
+      rounds.length-1,
+      numbers
+    );
+
+    tickets.push(ticket);
+
+    rounds[rounds.length - 1].totalQuantity += 1;
+  }
 
   function buy(uint256[6] memory numbers) public payable {
 
@@ -244,6 +285,18 @@ contract Lottery is Ownable{
     rounds[rounds.length - 1].status = RoundStatus.End;
     drawNumbers();
     createRound();
+  }
+
+  function changeInterval(uint256 _interval) external onlyOwner{
+    round_interval = _interval;
+  }
+
+  function changePrice(uint256 _price) external onlyOwner {
+    TICKET_PRICE = _price;
+  }
+
+  function tokenWithdraw(address payable toAdress) external onlyOwner {
+    token.transfer(toAdress, token.balanceOf(address(this)));
   }
 
 }
