@@ -47,9 +47,6 @@ contract Lottery is Ownable {
     createRound();
   }
 
-  function getCurrentBlock() public {
-    currentBlock = block.timestamp;
-  }
 
 
   // 클레이튼 기준 1일 = 86400 블럭
@@ -76,8 +73,6 @@ contract Lottery is Ownable {
     require(rounds[rounds.length - 1].endTime >= block.timestamp, "Round End");
     require(rounds[rounds.length - 1].status != RoundStatus.End, "Round End");
     require(token.balanceOf(msg.sender) >= TICKET_TOKEN_PRICE, "Not valid value");
-
-    
 
     // 숫자 중복 검사
     for(uint256 i = 0; i < numbers.length - 1; i++) {
@@ -107,8 +102,7 @@ contract Lottery is Ownable {
     rounds[rounds.length - 1].totalQuantity += 1;
   }
 
-  function buy(uint256[6] memory numbers) public payable {
-
+  function buy(uint256[6] memory numbers) public  roundEnd() payable {
     require(rounds[rounds.length - 1].endTime >= block.timestamp, "Round End");
     require(rounds[rounds.length - 1].status != RoundStatus.End, "Round End");
     require(msg.value == TICKET_PRICE, "Not valid value");
